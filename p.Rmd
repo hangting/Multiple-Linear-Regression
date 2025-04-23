@@ -1,0 +1,306 @@
+---
+title: "Project"
+author: "Brian Park, Dylan Maray, Hangting Lu, He Li"
+date: "2024-10-31"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Uploading the Walmart data set and checking if there are any missing data.
+```{r cars}
+walmart = read.csv("Walmart.csv")
+sum(is.na(walmart)) 
+# Check missing data
+```
+Checking the summary of this data set.
+```{r}
+summary(walmart)
+```
+Plotting the Weekly Sales from the walmart data set.
+```{r}
+plot(walmart$Weekly_Sales, xlab = 'Observations', ylab = 'Weekly Sales')
+```
+
+Plotting the Weekly Sales from Store 1.
+```{r}
+plot(walmart[walmart$Store == 1,]$Weekly_Sales, type = 'l', xlab = 'Week', ylab = 'Weekly Sales')
+```
+
+```{r}
+walmart$Year = factor(substr(walmart$Date, 7, 10))
+
+walmart_s1 = walmart[walmart$Store == 1, ] 
+# Focusing on Store 1
+
+walmart_s1$Week = 
+factor(c((52-dim(walmart_s1[walmart_s1$Year=='2010',])[1]+1):52, 1:dim(walmart_s1[walmart_s1$Year=='2011',])[1], 1: dim(walmart_s1[walmart_s1$Year=='2012',])[1])) 
+# Order of Weeks within each one year
+```
+
+Here, each store has different group mean. Weekly Sales changes periodically, 
+then for each different labeled week 
+might have different group mean. Then, we focus on store 1 weekly sales to avoid 
+multiple categorical variables.
+
+```{r}
+plot(walmart_s1$Week, walmart_s1$Weekly_Sales, xlab = 'Week', ylab = 'Weekly Sales')
+```
+
+We see there is different Weekly Sales range in each labeled week. Then we use 
+Week as categorical variable, where week 1, 2, ..., 52 as levels.
+
+Now, we focus on Walmart store sales data specifically for Store 1 and organize
+it by week within each year.
+
+
+We store those variables we are interested in and create a data frame.
+```{r}
+Weekly_Sales = walmart_s1$Weekly_Sales
+Week = walmart_s1$Week
+walmart_s1t = data.frame(Weekly_Sales, walmart_s1[, 5:8], Week) 
+# Data for Store 1, weekly sales, categorical & numeric variables
+```
+
+Let's fit the linear model and plot the Residuals vs Fitted.
+```{r}
+fit = lm(Weekly_Sales ~ ., data = walmart_s1t)
+plot(fit, which = 1)
+```
+
+Let's check if the model passes the normal test.
+```{r}
+shapiro.test(fit$residuals)
+```
+The W statistic is close to 1. However, the p-value is less than 0.05 level of significance. Then, we can conclude that the residuals is not normally 
+distributed. This conveys that a transformation is needed.
+
+**Transformation**
+
+Let's fit a linear model to predict weekly sales and then apply a Box-Cox transformation to find an optimal transformation for the Weekly Sales.
+```{r}
+wmfit_trans = lm(Weekly_Sales ~ ., data = walmart_s1t)
+require(MASS)
+b = boxcox(wmfit_trans, lambda = seq(-2.5, 0, by = 0.1))
+```
+
+Extracting the optimal lambda value from the Box-Cox transformation results.
+```{r}
+b$x[which.max(b$y)]
+```
+Since -2 is within the 95% confidence interval, we use -2 as the power of transformation.
+
+**Model diagnostics**
+
+Fit a new linear model using a transformed version of the Weekly Sales variable, raising it to the power of -2.
+```{r}
+wmfit = lm(Weekly_Sales^(-2) ~ ., data = walmart_s1t)
+```
+
+**Homoscedasticity & Linearity**
+
+Plot the Residuals vs fitted value.
+```{r}
+plot(wmfit, which = 1)
+```
+
+Plot the Residuals vs Temperature.
+```{r}
+plot(walmart_s1t$Temperature, wmfit$residuals, xlab = 'Temperature', ylab = 'Residuals')
+abline(h = 0, lty = 2)
+lines(lowess(walmart_s1t$Temperature, residuals(wmfit)), col = 'red')
+```
+
+Plot the Residuals vs Fuel Price.
+```{r}
+plot(walmart_s1t$Fuel_Price, wmfit$residuals, xlab = 'Fuel_Price', ylab = 'Residuals')
+abline(h = 0, lty = 2)
+lines(lowess(walmart_s1t$Fuel_Price, residuals(wmfit)), col = 'red')
+```
+
+Plot the Residuals vs CPI.
+```{r}
+plot(walmart_s1t$CPI, wmfit$residuals, xlab = 'CPI', ylab = 'Residuals')
+abline(h = 0, lty = 2)
+lines(lowess(walmart_s1t$CPI, residuals(wmfit)), col = 'red')
+```
+
+Plot the Residuals vs Unemployment.
+```{r}
+plot(walmart_s1t$Unemployment, wmfit$residuals, xlab = 'Unemployment', ylab = 'Residuals')
+abline(h = 0, lty = 2)
+lines(lowess(walmart_s1t$Unemployment, residuals(wmfit)), col = 'red')
+```
+
+Plot the Residuals vs Week (Categorical Variable)
+```{r}
+plot(walmart_s1t$Week, wmfit$residuals, xlab = 'Week', ylab = 'Residuals')
+abline(h = 0, lty = 2)
+lines(lowess(walmart_s1t$Week, residuals(wmfit)), col = 'red')
+```
+The data is linear, with constant variance.
+
+**Normality**
+
+Let's check if the model passes the normal test.
+```{r}
+shapiro.test(wmfit$residuals)
+```
+The W statistic is close to 1. The p-value is greater than 0.05 level of 
+significance. Then, we can conclude that the residuals is normally 
+distributed.
+
+Generating a plot for the linear model, focusing on the Normal Q-Q plot.
+```{r}
+plot(wmfit, which = 2)
+```
+
+**Independence**
+
+Performing the Durbin-Watson test on the residuals of the linear model to check
+for autocorrelation.
+```{r}
+lmtest::dwtest(wmfit, alternative = 'two.sided')
+```
+The DW statistic is around 2, suggesting no autocorrelation. The p-value is 
+much higher than 0.05. Then, we conclude that the residuals is independently distributed.
+
+Hence, we can apply linear regression to this data set.
+
+**Outliers**
+
+Identifying the most extreme standardized residual in the linear model.
+```{r}
+stud = rstudent(wmfit)
+abs(stud[which.max(abs(stud))])
+```
+Calculating the threshold for identifying outliers.
+```{r}
+n = dim(walmart_s1t)[1]
+p = length(wmfit$coefficients)
+abs(qt((0.05/n)/2, n-p-1))
+# Divide 2 for two-sided test, alpha = 0.05
+```
+Since 2.7124 < 3.723998, then observation 35 is not an outlier.
+
+**Leverage Points**
+
+Calculating the leverage values for each observation in the linear model and
+then summing them.
+```{r}
+h_diag = hatvalues(wmfit)
+sum(h_diag)
+```
+Number of parameters in the linear model.
+```{r}
+p
+```
+Hence, sum(h_diag) = p.
+
+Checking for leverage points.
+```{r}
+h_diag[which(h_diag > (2*p/n))]
+```
+No leverage points.
+
+**Influential Points**
+
+Checking for influential points.
+```{r}
+cook = cooks.distance(wmfit)
+cook[which(cook > 1)]
+```
+No influential points.
+
+Plotting Residuals vs Leverage.
+```{r}
+plot(wmfit, which = 5)
+```
+
+**Model Selection**
+
+Due to the possibility of collinearity and model complexity, we don't want to choose all variables. Then we should take a look at vcv matrix first.
+
+**Variance Covariance Matrix of Numeric Variables**
+
+Calculating the correlation matrix.
+```{r}
+round(cor(walmart_s1t[, 2:5]), 2)
+```
+
+Generating the correlation plot.
+```{r}
+corrplot::corrplot(cor(walmart_s1t[, 2:5]))
+```
+There is correlation among numeric variables, especially (Fuel_Price, CPI), (Fuel_Price, Unemployment), (CPI, Unemployment).
+Notice CPI might represent Fuel_Price and Unemployment well.
+
+Then we use BIC to select our model:
+```{r}
+wmfit_1 = lm(Weekly_Sales^(-2) ~ Week + Temperature, data = walmart_s1t)
+wmfit_2 = lm(Weekly_Sales^(-2) ~ Week + CPI, data = walmart_s1t)
+wmfit_3 = lm(Weekly_Sales^(-2) ~ Week + Temperature + CPI, data = walmart_s1t)
+BIC(wmfit_1); BIC(wmfit_2); BIC(wmfit_3)
+```
+
+We choose the second model (with the lowest BIC value).
+
+**Hypothesis 1**
+
+**Should we consider CPI for analyzing weekly sales?**
+
+```{r}
+plot(walmart_s1t$CPI, xlab = 'Week', ylab = 'CPI')
+```
+
+The CPI shows a increasing trend as time. But the Weekly Sales does not present a certain upward trend as time. Then we want to know if it is reasonable to include CPI as a variable in our model.
+
+Null hypothesis: There is no effect from CPI.
+
+Alternative hypothesis: There is effect from CPI.
+
+Applying linear model to our categorical variable as our small model 
+(wmfit_week). Summarizing our full model (wmfit_cpi).
+```{r}
+wmfit_week = lm(Weekly_Sales^(-2) ~ Week, data = walmart_s1t)
+wmfit_cpi = wmfit_2
+summary(wmfit_cpi)
+```
+Comparing both models using the Anova Table.
+```{r}
+anova(wmfit_week, wmfit_cpi)
+```
+According to the ANOVA table, the F is greater than $F_{0.05, 1, 90}$, 
+the p-value is less than 0.05 level of significance. Then, we reject the null hypothesis, concluding that the effect of CPI is significant.
+
+**Hypothesis 2**
+
+**Is CPI effected by $week_i$? (i = 1, 2, ..., 52)**
+
+Null hypothesis: There is no interaction between $week_i$ and CPI. 
+(coefficient of $week_i$:CPI is not significant)
+
+Alternative hypothesis: There is interaction between $week_i$ and CPI.
+
+Applying the linear model with interaction and obtaining the summary.
+```{r}
+wmfit_int = lm(Weekly_Sales^(-2) ~ Week * CPI, data = walmart_s1t)
+summary(wmfit_int)
+```
+
+Comparing both models using the Anova Table.
+```{r}
+anova(wmfit_cpi, wmfit_int)
+```
+Since the p-value is greater than 0.05, we are not able to reject the null 
+hypothesis. Hence, the interaction between $week_i$ and CPI is not significant.
+
+**The Final Model**
+```{r}
+summary(wmfit_cpi)$adj.r.squared
+```
+
+The model has around 89% accuracy for each seasonal prediction.
+
