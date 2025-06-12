@@ -11,7 +11,8 @@ Project from the Introduction to Linear Regression Regression Analysis Course (A
   - The report begins with an introduction to our project & literature review.
   - Methods included formulating and testing hypotheses, checking statistical assumptions, and refining models to ensure accuracy and interpretability
   - The conclusion contained interpretations based on findings in our Methods section and suggestions for future studies
-   
+* Walmart Project Slides.pdfContains the presentation based on our code & report
+
 ### Contributions: 
 * Brian Park & Hangting Lu - Code & Report Editor
 * He Li & Dylan Maray - Report
