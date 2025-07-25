@@ -16,4 +16,7 @@ Project from the Introduction to Linear Regression Regression Analysis Course (A
 ### Contributions: 
 * Brian Park & Hangting Lu - Code & Report Editor
 * He Li & Dylan Maray - Report
-* Dylan Maray - Presentation  
+* Dylan Maray - Presentation
+
+## Dataset Source: 
+https://www.kaggle.com/datasets/yasserh/walmart-dataset
